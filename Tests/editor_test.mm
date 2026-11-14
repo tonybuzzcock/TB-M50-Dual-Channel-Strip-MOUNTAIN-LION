@@ -156,7 +156,7 @@ int main (int argc, char** argv)
             ps.push_back (chParam (c, kCPan));   at.push_back (NSMakePoint (cx[c], 556));
             ps.push_back (chParam (c, kCFader)); at.push_back (NSMakePoint (cx[c], faderPos (0.5f)));
         }
-        ps.push_back (kMaster); at.push_back (NSMakePoint (800, faderPos (0.5f)));
+        ps.push_back (kMaster); at.push_back (NSMakePoint (602, faderPos (0.5f)));
         bool all = true;
         for (size_t k = 0; k < ps.size(); ++k)
         {
@@ -257,8 +257,8 @@ int main (int argc, char** argv)
     check (automateCalls >= kNumParams, "recall tells the host about every parameter");
     renderPNG (panel, dir + "/panel_preset_loaded.png");
 
-    mouse (win, panel, NSLeftMouseDown, NSMakePoint (508, 885));
-    mouse (win, panel, NSLeftMouseUp,   NSMakePoint (508, 885));
+    mouse (win, panel, NSLeftMouseDown, NSMakePoint (429, 885));
+    mouse (win, panel, NSLeftMouseUp,   NSMakePoint (429, 885));
     field = nil;
     for (NSView* sv in [panel subviews]) if ([sv isKindOfClass: [NSTextField class]]) field = (NSTextField*) sv;
     check (field != nil && [[field stringValue] isEqualToString: @"Drum buss glue"], "clicking the readout opens the name to edit");

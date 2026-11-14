@@ -17,10 +17,11 @@ The modern Mac version (CLAP / VST3 / AU) will live in `TB-M50-Dual-Channel-Stri
 
 ## Panel
 
-A square panel in the console's own colours (warm grey face, black lettering, charcoal knurled
+A portrait panel (722 x 920) in the console's own colours (warm grey face, black lettering, charcoal knurled
 knobs with a red TRIM cap, orange EQ rings, a cream PAN cap, cream fader caps, the red lip along
-the front). The two channels sit on the left half; the right half holds the STEREO MASTER fader
-and its L / R VUs, with the empty face of a two-channel M-50. Only the user's TB electronic logo is
+the front). The two channels sit on the left; the STEREO MASTER fader and its L / R VUs are on
+the right, with empty face between, like a two-channel M-50. A clear band of face separates the
+faders' 0 from the preset strip. Only the user's TB electronic logo is
 used (no TASCAM artwork).
 
 Each channel, top to bottom:
