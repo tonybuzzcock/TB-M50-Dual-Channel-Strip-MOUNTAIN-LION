@@ -727,7 +727,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
 {
     const NSRect box = kReadoutRect;
     NSBezierPath* p = [NSBezierPath bezierPathWithRect: box];
-    NSGradient* glow = [[[NSGradient alloc] initWithStartingColor: rgb (206, 255, 92) endingColor: rgb (164, 226, 56)] autorelease];
+    NSGradient* glow = [[[NSGradient alloc] initWithStartingColor: rgb (232, 212, 170) endingColor: rgb (204, 178, 130)] autorelease];   // tan
     [glow drawInBezierPath: p relativeCenterPosition: NSMakePoint (0.0, 0.0)];
     [rgb (40, 42, 38) set];
     [p setLineWidth: 1.0];
@@ -957,7 +957,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     [nameField setBezeled: NO];
     [nameField setBordered: NO];
     [nameField setDrawsBackground: YES];
-    [nameField setBackgroundColor: rgb (196, 246, 84)];
+    [nameField setBackgroundColor: rgb (226, 204, 160)];
     [nameField setTextColor: [NSColor blackColor]];
     [nameField setFont: boldFont (18.0)];
     [nameField setAlignment: NSCenterTextAlignment];

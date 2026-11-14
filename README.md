@@ -42,7 +42,7 @@ STEREO MASTER: one fader for both sides (same law), L and R VUs.
 Left off at the user's request: MIC ATT, PHASE, the AUX sends, ASSIGN, MUTE, SOLO / PFL.
 
 Bottom strip: the TB electronic logo, SAVE and 8 preset keys with names (SAVE, then a slot, type a
-name, Return; click the readout to rename the preset in use), and the lime-green readout.
+name, Return; click the readout to rename the preset in use), and the tan readout.
 
 ## The OVERLOAD LED and the drive
 
