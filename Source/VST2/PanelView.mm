@@ -183,6 +183,34 @@ void glowFill (NSBezierPath* p, NSColor* colour, CGFloat blur)
     [NSGraphicsContext restoreGraphicsState];
 }
 
+// The model name in the spirit of the M-50's own: a very heavy, wide sans
+// (Arial Black, which ships with OS X, stretched 25 % wider; Helvetica Bold
+// thickened with an outline if it is missing). Plain lettering, no artwork.
+void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
+{
+    const CGFloat stretch = 1.25;
+    NSFont* f = [NSFont fontWithName: @"Arial-Black" size: size];
+    const bool black = f != nil;
+    if (! f) f = boldFont (size);
+    NSString* s = [NSString stringWithUTF8String: text];
+    NSMutableDictionary* at = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                 f, NSFontAttributeName, ink(), NSForegroundColorAttributeName,
+                                 [NSNumber numberWithDouble: 0.5], NSKernAttributeName, nil];
+    if (! black)
+    {
+        [at setObject: ink() forKey: NSStrokeColorAttributeName];
+        [at setObject: [NSNumber numberWithDouble: -9.0] forKey: NSStrokeWidthAttributeName];
+    }
+    const NSSize sz = [s sizeWithAttributes: at];
+    [NSGraphicsContext saveGraphicsState];
+    NSAffineTransform* t = [NSAffineTransform transform];
+    [t translateXBy: cx yBy: cy];
+    [t scaleXBy: stretch yBy: 1.0];
+    [t concat];
+    [s drawAtPoint: NSMakePoint (-sz.width * 0.5, -sz.height * 0.5) withAttributes: at];
+    [NSGraphicsContext restoreGraphicsState];
+}
+
 } // namespace
 
 //==============================================================================
@@ -347,6 +375,8 @@ void glowFill (NSBezierPath* p, NSColor* colour, CGFloat blur)
         [sg drawInRect: strip angle: 90.0];
         [rgb (30, 29, 27) set];
         NSRectFill (NSMakeRect (0, kConsoleBottom, w, 1.5));
+        // the model name, plain lettering, beside the preset keys
+        drawModelName ("M-50", (NSMaxX (slotRect (kNumPresetSlots - 1)) + NSMaxX (kReadoutRect)) * 0.5, NSMidY (kSaveRect), 24.0);
     }
     [rgba (0, 0, 0, 0.6) set];
     NSFrameRectWithWidth (NSMakeRect (0, 0, w, h), 1.0);
