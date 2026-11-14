@@ -9,6 +9,8 @@
 //   the stereo buss (hard left / hard right by default).
 // - On the Mac, a custom panel (PanelView.mm) with VU meters; elsewhere the host
 //   shows generic controls.
+// - BYPASS (also the host's own bypass, effSetBypass) crossfades to the dry
+//   input over 10 ms; presets leave it alone.
 // - No latency. Plain C++98; the editor uses only Cocoa APIs present in Mac OS X 10.8.5.
 
 #include "vst2_abi.h"
@@ -47,7 +49,7 @@ class M50VST : public EditorHost
 {
 public:
     explicit M50VST (audioMasterCallback hostCallback)
-        : host (hostCallback), sampleRate (44100.0), editor (0)
+        : host (hostCallback), sampleRate (44100.0), editor (0), byp (0.0f), bypK (0.01f)
     {
         std::memset (&effect, 0, sizeof (effect));
         effect.magic = kEffectMagic;
@@ -156,6 +158,7 @@ public:
         if (! presets.get (slot, v)) return false;
         for (int i = 0; i < kNumParams; ++i)
         {
+            if (i == kBypass) continue;        // a preset never bypasses the plugin
             guiBeginEdit (i);
             guiSetParam (i, v[i]);
             guiEndEdit (i);
@@ -302,7 +305,8 @@ private:
                 if (ptr)
                 {
                     const char* s = (const char*) ptr;
-                    if (! std::strcmp (s, "plugAsChannelInsert") || ! std::strcmp (s, "plugAsSend"))
+                    if (! std::strcmp (s, "plugAsChannelInsert") || ! std::strcmp (s, "plugAsSend")
+                        || ! std::strcmp (s, "bypass"))
                         return 1;
                     if (! std::strcmp (s, "receiveVstEvents") || ! std::strcmp (s, "receiveVstMidiEvent")
                         || ! std::strcmp (s, "sendVstEvents") || ! std::strcmp (s, "sendVstMidiEvent"))
@@ -311,6 +315,9 @@ private:
                 return 0;
 
             case effGetTailSize:       return (VstIntPtr) (sampleRate * 0.5);    // EQ and coupling ring-down
+            case effSetBypass:
+                params[kBypass] = value ? 1.0f : 0.0f;
+                return 1;
             case effStartProcess:      return 0;
             case effStopProcess:       return 0;
             default:                   return 0;
@@ -336,6 +343,7 @@ private:
                 break;
             }
             case kBypassSw: std::strcpy (buf, isOn (v) ? "Bypass" : "In"); break;
+            case kBypassAll: std::strcpy (buf, isOn (v) ? "On" : "Off"); break;
             case kHiHz: case kMidHz: case kLoHz:
             {
                 const int band = kParamKind[index] == kHiHz ? kHigh : (kParamKind[index] == kMidHz ? kMid : kLow);
@@ -378,6 +386,7 @@ private:
     {
         const double v = params[index];
         if (index == kMaster) { unit.setMaster (v); return; }
+        if (index == kBypass) return;          // read in processReplacing
         const int c = index / kNumChannelParams, p = index % kNumChannelParams;
         Channel& ch = unit.channel (c);
         switch (p)
@@ -406,6 +415,8 @@ private:
     void prepare()
     {
         unit.prepare (sampleRate);
+        bypK = (float) (1.0 - std::exp (-1.0 / (0.003 * sampleRate)));   // about 10 ms to settle
+        byp = isOn (params[kBypass]) ? 1.0f : 0.0f;
     }
 
     void processReplacing (float** in, float** out, VstInt32 n)
@@ -424,6 +435,26 @@ private:
             std::memcpy (inBuf[0], in[0] + done, (size_t) chunk * sizeof (float));
             std::memcpy (inBuf[1], in[1] + done, (size_t) chunk * sizeof (float));
             unit.process (inBuf[0], inBuf[1], out[0] + done, out[1] + done, (int) chunk);
+            // BYPASS: fade to the dry input (no latency, so the two line up)
+            const float target = isOn (params[kBypass]) ? 1.0f : 0.0f;
+            if (target != byp || byp != 0.0f)
+            {
+                for (VstInt32 i = 0; i < chunk; ++i)
+                {
+                    byp += (target - byp) * bypK;
+                    if (std::fabs (target - byp) < 1e-5f) byp = target;
+                    if (byp >= 1.0f)
+                    {
+                        out[0][done + i] = inBuf[0][i];      // fully bypassed: the input, bit for bit
+                        out[1][done + i] = inBuf[1][i];
+                    }
+                    else
+                    {
+                        out[0][done + i] += (inBuf[0][i] - out[0][done + i]) * byp;
+                        out[1][done + i] += (inBuf[1][i] - out[1][done + i]) * byp;
+                    }
+                }
+            }
             done += chunk;
         }
 
@@ -442,6 +473,7 @@ private:
     char programName[kVstMaxProgNameLen + 1];
     M50 unit;
     void* editor;
+    float byp, bypK;                         // BYPASS crossfade (1 = dry)
     ERect editRect;
     PresetStore presets;
     float scratch[kNumChannels][kScratch];   // processAccumulate's outputs

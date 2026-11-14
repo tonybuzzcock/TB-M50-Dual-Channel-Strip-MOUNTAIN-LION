@@ -7,7 +7,8 @@
 // D.I. / LINE), TRIM with its OVERLOAD LED, EQUALIZER BYPASS, the three sweep EQ
 // sections (concentric: orange ring = FREQUENCY, dark cap = BOOST / CUT), PAN and
 // the fader, a small VU above each channel, and the STEREO MASTER fader with its
-// L / R VUs. A slightly portrait panel: the channels on the left, the master on
+// L / R VUs, and a BYPASS button for the whole plugin above the master fader
+// (the user's addition). A slightly portrait panel: the channels on the left, the master on
 // the right with empty face between, like a two-channel M-50. No TASCAM artwork;
 // the user's TB electronic logo is in the strip along the bottom, with the
 // presets and the readout.
@@ -33,7 +34,7 @@ using namespace tbm50;
 namespace
 {
 
-enum CtlType { kCtlTrim, kCtlPan, kCtlEqRing, kCtlEqCap, kCtlSlide3, kCtlButton, kCtlFader };
+enum CtlType { kCtlTrim, kCtlPan, kCtlEqRing, kCtlEqCap, kCtlSlide3, kCtlButton, kCtlFader, kCtlBypass };
 
 struct Ctl
 {
@@ -75,7 +76,9 @@ const Ctl kCtls[] = {
     CH_CTLS (0, "CH 1"),
     CH_CTLS (1, "CH 2"),
     { kMaster, kCtlFader, kMasterX, 0, 0, "STEREO MASTER" },
+    { kBypass, kCtlBypass, kMasterX, 506.0, 0, "BYPASS" },
 };
+const CGFloat kBypassHalfW = 30.0, kBypassHalfH = 17.0;
 const int kNumCtls = (int) (sizeof (kCtls) / sizeof (kCtls[0]));
 
 // Plugin strip: logo, presets, readout
@@ -796,6 +799,44 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     [cp stroke];
 }
 
+// BYPASS (whole plugin): a larger square push button with its name on it;
+// in = bypassed, lit red with a glow
+- (void) drawBypassAt: (NSPoint) c in: (bool) in
+{
+    const NSRect r = NSMakeRect (c.x - kBypassHalfW, c.y - kBypassHalfH, 2 * kBypassHalfW, 2 * kBypassHalfH);
+    NSBezierPath* bp = [NSBezierPath bezierPathWithRoundedRect: NSInsetRect (r, -3.0, -3.0) xRadius: 2.5 yRadius: 2.5];
+    [rgb (30, 29, 28) set];
+    [bp fill];
+    NSBezierPath* cp = [NSBezierPath bezierPathWithRoundedRect: NSInsetRect (r, in ? 1.0 : 0.0, in ? 1.0 : 0.0) xRadius: 2.0 yRadius: 2.0];
+    if (in)
+    {
+        glowFill (cp, rgb (255, 40, 24), 18.0);
+        NSGradient* g = [[[NSGradient alloc] initWithColorsAndLocations:
+                            rgb (255, 230, 214), 0.0, rgb (255, 110, 86), 0.35, rgb (232, 30, 18), 1.0, nil] autorelease];
+        [g drawInBezierPath: cp relativeCenterPosition: NSMakePoint (0.0, 0.0)];
+    }
+    else
+    {
+        [NSGraphicsContext saveGraphicsState];
+        NSShadow* sh = [[[NSShadow alloc] init] autorelease];
+        [sh setShadowOffset: NSMakeSize (1.0, -2.5)];
+        [sh setShadowBlurRadius: 3.0];
+        [sh setShadowColor: [NSColor colorWithCalibratedWhite: 0.0 alpha: 0.5]];
+        [sh set];
+        [rgb (170, 166, 158) set];
+        [cp fill];
+        [NSGraphicsContext restoreGraphicsState];
+        NSGradient* g = [[[NSGradient alloc] initWithStartingColor: rgb (230, 226, 216) endingColor: rgb (172, 168, 160)] autorelease];
+        [g drawInBezierPath: cp angle: -90.0];
+        [rgba (255, 255, 255, 0.5) set];
+        NSRectFillUsingOperation (NSMakeRect (NSMinX (r) + 2.0, NSMinY (r) + 1.5, r.size.width - 4.0, 1.0), NSCompositeSourceOver);
+    }
+    [rgba (0, 0, 0, 0.5) set];
+    [cp setLineWidth: 0.8];
+    [cp stroke];
+    drawText ("BYPASS", boldFont (12.0), in ? rgb (70, 8, 4) : ink(), c.x, c.y, 0.8);
+}
+
 - (void) drawLedAt: (NSPoint) c lit: (bool) lit
 {
     const CGFloat r = 4.0;
@@ -874,6 +915,8 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
         }
         else if (kind == kMicLine)
             std::snprintf (text, sizeof (text), "%s   %s", name, disp);
+        else if (kind == kBypassAll)
+            std::snprintf (text, sizeof (text), "BYPASS   %s", isOn (shown[readoutParam]) ? "ON" : "OFF");
         else if (kind == kBypassSw)
             std::snprintf (text, sizeof (text), "%s   %s", name, isOn (shown[readoutParam]) ? "BYPASSED" : "IN");
         else if (kind == kPanPos)
@@ -1002,6 +1045,9 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
             case kCtlFader:
                 [self drawFaderAt: c.cx value: v];
                 break;
+            case kCtlBypass:
+                [self drawBypassAt: p in: isOn (v)];
+                break;
             default: break;
         }
     }
@@ -1028,6 +1074,9 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
                 break;
             case kCtlFader:
                 if (std::fabs (dx) <= kCapW * 0.5 + 4.0 && p.y >= kFaderTop - kCapH && p.y <= kFaderBottom + kCapH) return i;
+                break;
+            case kCtlBypass:
+                if (std::fabs (dx) <= kBypassHalfW + 3.0 && std::fabs (p.y - c.cy) <= kBypassHalfH + 3.0) return i;
                 break;
             default:
             {
@@ -1227,7 +1276,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
         host->guiEndEdit (c.param);
         return;
     }
-    if (c.type == kCtlButton)
+    if (c.type == kCtlButton || c.type == kCtlBypass)
     {
         host->guiBeginEdit (c.param);
         [self setParam: c.param value: isOn (shown[c.param]) ? 0.0f : 1.0f];
@@ -1270,7 +1319,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     const int i = [self ctlAtPoint: p];
     if (i < 0 || ! host) return;
     const Ctl& c = kCtls[i];
-    if (c.type == kCtlSlide3 || c.type == kCtlButton) return;
+    if (c.type == kCtlSlide3 || c.type == kCtlButton || c.type == kCtlBypass) return;
     const CGFloat d = [e deltaY];
     if (d == 0.0) return;
     status[0] = 0;

@@ -86,7 +86,7 @@ int main (int argc, char** argv)
     std::printf ("\nIdentity\n");
     check (e->magic == kEffectMagic, "magic is 'VstP'");
     check (e->numInputs == 2 && e->numOutputs == 2, "stereo in/out");
-    check (e->numParams == tbm50::kNumParams && tbm50::kNumParams == 23, "23 parameters (11 per channel + master)");
+    check (e->numParams == tbm50::kNumParams && tbm50::kNumParams == 24, "24 parameters (11 per channel, master, bypass)");
     check ((e->flags & effFlagsCanReplacing) != 0, "processReplacing supported");
     check ((e->flags & effFlagsIsSynth) == 0, "not flagged as an instrument");
     check (e->initialDelay == 0, "no latency");
@@ -105,10 +105,10 @@ int main (int argc, char** argv)
     call (e, effSetBlockSize, 0, 512);
 
     std::printf ("\nParameters\n");
-    const char* expectDisp[23] = {
+    const char* expectDisp[24] = {
         "Line", "+0.0", "In", "6.12k", "+0.0", "1.58k", "+0.0", "224", "+0.0", "L100", "+0.0",
         "Line", "+0.0", "In", "6.12k", "+0.0", "1.58k", "+0.0", "224", "+0.0", "R100", "+0.0",
-        "+0.0" };
+        "+0.0", "Off" };
     for (int i = 0; i < tbm50::kNumParams; ++i)
     {
         char name[64] = { 0 }, disp[64] = { 0 }, label[64] = { 0 };
@@ -243,6 +243,34 @@ int main (int argc, char** argv)
         for (int i = sr; i < sr * 2; ++i) tail = std::max (tail, (double) std::fabs (oa[i]));
         std::printf ("  residual after 1 s of silence: %.2g (hiss)\n", tail);
         check (tail < 1e-3, "silence settles to the noise floor");
+    }
+
+    // BYPASS: the dry input, exactly, once the fade is over; and back again
+    {
+        std::vector<float> a (sr), b (sr), oa (sr), ob (sr);
+        for (int i = 0; i < sr; ++i) { a[i] = (float) (0.3 * std::sin (0.031 * i)); b[i] = (float) (0.2 * std::sin (0.017 * i)); }
+        e->setParameter (e, tbm50::kCh1 + tbm50::kCHiGain, 1.0f);       // something to hear when it is in
+        e->setParameter (e, tbm50::kBypass, 1.0f);
+        runBlocks (e, a, b, oa, ob, 512);
+        double d = 0.0;
+        for (int i = sr / 10; i < sr; ++i) d = std::max (d, (double) std::max (std::fabs (oa[i] - a[i]), std::fabs (ob[i] - b[i])));
+        std::printf ("  BYPASS: largest difference from the input %.2g\n", d);
+        check (d == 0.0, "BYPASS passes the input untouched");
+        std::memset (buf, 0, sizeof (buf));
+        call (e, effGetParamDisplay, tbm50::kBypass, 0, buf);
+        check (std::strcmp (buf, "On") == 0, "Bypass shows On");
+        e->setParameter (e, tbm50::kBypass, 0.0f);
+        runBlocks (e, a, b, oa, ob, 512);
+        d = 0.0;
+        for (int i = sr / 10; i < sr; ++i) d = std::max (d, (double) std::fabs (oa[i] - a[i]));
+        check (d > 0.01, "and out again (the EQ is heard)");
+        // the host's own bypass
+        check (call (e, effCanDo, 0, 0, (void*) "bypass") == 1, "offers the host's bypass");
+        call (e, effSetBypass, 0, 1);
+        check (e->getParameter (e, tbm50::kBypass) == 1.0f, "effSetBypass engages BYPASS");
+        call (e, effSetBypass, 0, 0);
+        check (e->getParameter (e, tbm50::kBypass) == 0.0f, "and releases it");
+        e->setParameter (e, tbm50::kCh1 + tbm50::kCHiGain, 0.5f);
     }
 
     // processAccumulate adds

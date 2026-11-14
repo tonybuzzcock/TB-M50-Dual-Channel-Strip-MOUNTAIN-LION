@@ -202,6 +202,18 @@ int main (int argc, char** argv)
         e->setParameter (e, kCh1 + kCInput, 1.0f);
     }
 
+    // BYPASS above the master fader
+    {
+        mouse (win, panel, NSLeftMouseDown, NSMakePoint (602, 506));
+        mouse (win, panel, NSLeftMouseUp,   NSMakePoint (602, 506));
+        check (e->getParameter (e, kBypass) >= 0.5f, "BYPASS latches in");
+        pump (0.1);
+        renderPNG (panel, dir + "/panel_bypassed.png");
+        mouse (win, panel, NSLeftMouseDown, NSMakePoint (602, 506));
+        mouse (win, panel, NSLeftMouseUp,   NSMakePoint (602, 506));
+        check (e->getParameter (e, kBypass) < 0.5f, "and out again");
+    }
+
     // A frequency in the readout
     mouse (win, panel, NSLeftMouseDown,    NSMakePoint (108, 408 - 18));
     mouse (win, panel, NSLeftMouseDragged, NSMakePoint (108, 408 - 38));
