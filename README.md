@@ -40,6 +40,13 @@ Each channel, top to bottom:
 
 STEREO MASTER: one fader for both sides (same law), L and R VUs.
 
+LINK (the user's addition, above the master fader): channel 1's controls drive channel 2 (INPUT,
+TRIM, EQ BYPASS, the EQ, the fader); both PANs stay independent. Turning LINK on copies channel 1
+into channel 2; "LINKED" shows by channel 2's number.
+
+Right-click (or Control-click) any channel control: the readout shows that control's value on both
+channels ("HIGH FREQ   1: 6.12 kHz   2: 4.50 kHz") without moving anything, for matching them.
+
 BYPASS (the user's addition, above the master fader): the whole plugin, lit red when in. It fades
 to the dry input over about 10 ms (no click) and then passes it untouched. It bypasses this plugin
 only: it isn't tied to the host's bypass, so other plugins in PatchWork are never affected. Presets

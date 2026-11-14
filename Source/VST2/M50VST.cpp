@@ -12,6 +12,9 @@
 // - BYPASS (the panel button) crossfades this plugin to its dry input over
 //   10 ms; presets leave it alone. It is not tied to the host's bypass, so it
 //   never touches anything else in the host (other plugins in PatchWork).
+// - LINK: channel 2 follows channel 1 on every control except PAN (both pans
+//   stay independent). Turning it on copies channel 1 into channel 2; while it
+//   is on, channel 2's linked controls ignore their own changes.
 // - No latency. Plain C++98; the editor uses only Cocoa APIs present in Mac OS X 10.8.5.
 
 #include "vst2_abi.h"
@@ -157,9 +160,13 @@ public:
     {
         float v[kNumParams];
         if (! presets.get (slot, v)) return false;
+        // LINK first, so channel 2 takes the preset's own settings when it isn't linked
+        guiBeginEdit (kLink);
+        guiSetParam (kLink, v[kLink]);
+        guiEndEdit (kLink);
         for (int i = 0; i < kNumParams; ++i)
         {
-            if (i == kBypass) continue;        // a preset never bypasses the plugin
+            if (i == kBypass || i == kLink) continue;   // a preset never bypasses the plugin
             guiBeginEdit (i);
             guiSetParam (i, v[i]);
             guiEndEdit (i);
@@ -340,7 +347,7 @@ private:
                 break;
             }
             case kBypassSw: std::strcpy (buf, isOn (v) ? "Bypass" : "In"); break;
-            case kBypassAll: std::strcpy (buf, isOn (v) ? "On" : "Off"); break;
+            case kBypassAll: case kLinkSw: std::strcpy (buf, isOn (v) ? "On" : "Off"); break;
             case kHiHz: case kMidHz: case kLoHz:
             {
                 const int band = kParamKind[index] == kHiHz ? kHigh : (kParamKind[index] == kMidHz ? kMid : kLow);
@@ -375,15 +382,30 @@ private:
         if (! (value == value)) return;   // NaN guard
         if (value < 0.0f) value = 0.0f;
         if (value > 1.0f) value = 1.0f;
+        const bool linked = isOn (params[kLink]);
+        if (linked && isChannel2 (index) && linkedControl (index - kCh2))
+            return;                       // channel 2 follows channel 1 while linked
         params[index] = value;
         applyParam (index);
+        if (linked && isChannel1 (index) && linkedControl (index - kCh1))
+        {
+            params[index + kCh2] = value;
+            applyParam (index + kCh2);
+        }
+        if (index == kLink && isOn (value))
+            for (int p = 0; p < kNumChannelParams; ++p)
+                if (linkedControl (p))
+                {
+                    params[kCh2 + p] = params[kCh1 + p];
+                    applyParam (kCh2 + p);
+                }
     }
 
     void applyParam (int index)
     {
         const double v = params[index];
         if (index == kMaster) { unit.setMaster (v); return; }
-        if (index == kBypass) return;          // read in processReplacing
+        if (index == kBypass || index == kLink) return;   // read in processReplacing / setParameter
         const int c = index / kNumChannelParams, p = index % kNumChannelParams;
         Channel& ch = unit.channel (c);
         switch (p)

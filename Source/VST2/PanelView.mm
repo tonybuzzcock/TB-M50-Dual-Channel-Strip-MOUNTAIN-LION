@@ -7,8 +7,10 @@
 // D.I. / LINE), TRIM with its OVERLOAD LED, EQUALIZER BYPASS, the three sweep EQ
 // sections (concentric: orange ring = FREQUENCY, dark cap = BOOST / CUT), PAN and
 // the fader, a small VU above each channel, and the STEREO MASTER fader with its
-// L / R VUs, and a BYPASS button for the whole plugin above the master fader
-// (the user's addition). A slightly portrait panel: the channels on the left, the master on
+// L / R VUs, and LINK (channel 1 drives channel 2, pans apart) and BYPASS (the
+// whole plugin) buttons above the master fader (the user's additions). A
+// right-click (or Control-click) on any channel control shows both channels'
+// values for it in the readout, without moving anything. A slightly portrait panel: the channels on the left, the master on
 // the right with empty face between, like a two-channel M-50. No TASCAM artwork;
 // the user's TB electronic logo is in the strip along the bottom, with the
 // presets and the readout.
@@ -34,7 +36,7 @@ using namespace tbm50;
 namespace
 {
 
-enum CtlType { kCtlTrim, kCtlPan, kCtlEqRing, kCtlEqCap, kCtlSlide3, kCtlButton, kCtlFader, kCtlBypass };
+enum CtlType { kCtlTrim, kCtlPan, kCtlEqRing, kCtlEqCap, kCtlSlide3, kCtlButton, kCtlFader, kCtlBypass, kCtlLink };
 
 struct Ctl
 {
@@ -76,6 +78,7 @@ const Ctl kCtls[] = {
     CH_CTLS (0, "CH 1"),
     CH_CTLS (1, "CH 2"),
     { kMaster, kCtlFader, kMasterX, 0, 0, "STEREO MASTER" },
+    { kLink,   kCtlLink,   kMasterX, 446.0, 0, "LINK" },
     { kBypass, kCtlBypass, kMasterX, 506.0, 0, "BYPASS" },
 };
 const CGFloat kBypassHalfW = 30.0, kBypassHalfH = 17.0;
@@ -331,6 +334,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     int dragCtl;
     CGFloat dragStartY, dragStartValue;
     int readoutParam;
+    bool compare;             // readout shows both channels' values (right-click)
     bool saveMode;
     int activePreset;
     bool presetUsed[kNumPresetSlots];
@@ -356,6 +360,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
         for (int i = 0; i < kNumMeters; ++i) meter[i] = host->getMeter (i);
         dragCtl = -1;
         readoutParam = -1;
+        compare = false;
         saveMode = false;
         activePreset = -1;
         status[0] = 0;
@@ -801,7 +806,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
 
 // BYPASS (whole plugin): a larger square push button with its name on it;
 // in = bypassed, lit red with a glow
-- (void) drawBypassAt: (NSPoint) c in: (bool) in
+- (void) drawBypassAt: (NSPoint) c in: (bool) in title: (const char*) title
 {
     const NSRect r = NSMakeRect (c.x - kBypassHalfW, c.y - kBypassHalfH, 2 * kBypassHalfW, 2 * kBypassHalfH);
     NSBezierPath* bp = [NSBezierPath bezierPathWithRoundedRect: NSInsetRect (r, -3.0, -3.0) xRadius: 2.5 yRadius: 2.5];
@@ -834,7 +839,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     [rgba (0, 0, 0, 0.5) set];
     [cp setLineWidth: 0.8];
     [cp stroke];
-    drawText ("BYPASS", boldFont (12.0), in ? rgb (70, 8, 4) : ink(), c.x, c.y, 0.8);
+    drawText (title, boldFont (12.0), in ? rgb (70, 8, 4) : ink(), c.x, c.y, 0.8);
 }
 
 - (void) drawLedAt: (NSPoint) c lit: (bool) lit
@@ -900,31 +905,59 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
         drawText (status, boldFont (18.0), [NSColor blackColor], NSMidX (box), NSMidY (box));
     else if (readoutParam >= 0 && host)
     {
-        char disp[16] = { 0 };
-        host->getParamDisplay (readoutParam, disp);
-        char text[96];
+        char text[128];
         const char* name = "";
         for (int i = 0; i < kNumCtls; ++i)
             if (kCtls[i].param == readoutParam) { name = kCtls[i].label; break; }
-        const int kind = kParamKind[readoutParam];
-        if (kind == kHiHz || kind == kMidHz || kind == kLoHz)
+        const bool chParamHere = isChannel1 (readoutParam) || isChannel2 (readoutParam);
+        if (compare && chParamHere)
         {
-            const size_t n = std::strlen (disp);
-            if (n && disp[n - 1] == 'k') { disp[n - 1] = 0; std::snprintf (text, sizeof (text), "%s   %s kHz", name, disp); }
-            else std::snprintf (text, sizeof (text), "%s   %s Hz", name, disp);
+            // both channels: "HIGH FREQ   1: 6.12 kHz   2: 4.50 kHz"
+            const int p = (readoutParam - kCh1) % kNumChannelParams;
+            char a[40], b[40];
+            [self valueText: kCh1 + p into: a size: sizeof (a)];
+            [self valueText: kCh2 + p into: b size: sizeof (b)];
+            const bool linked = isOn (shown[kLink]) && linkedControl (p);
+            std::snprintf (text, sizeof (text), "%s   1: %s   2: %s%s", name + 5, a, b, linked ? "  (LINKED)" : "");
         }
-        else if (kind == kMicLine)
-            std::snprintf (text, sizeof (text), "%s   %s", name, disp);
-        else if (kind == kBypassAll)
-            std::snprintf (text, sizeof (text), "BYPASS   %s", isOn (shown[readoutParam]) ? "ON" : "OFF");
-        else if (kind == kBypassSw)
-            std::snprintf (text, sizeof (text), "%s   %s", name, isOn (shown[readoutParam]) ? "BYPASSED" : "IN");
-        else if (kind == kPanPos)
-            std::snprintf (text, sizeof (text), "%s   %s", name, disp);
         else
-            std::snprintf (text, sizeof (text), "%s   %s%s", name, disp, std::strcmp (disp, "-inf") ? " dB" : "");
-        drawText (text, boldFont (18.0), [NSColor blackColor], NSMidX (box), NSMidY (box));
+        {
+            char v[40];
+            [self valueText: readoutParam into: v size: sizeof (v)];
+            std::snprintf (text, sizeof (text), "%s   %s", name, v);
+        }
+        NSFont* f = boldFont (18.0);
+        if ([[NSString stringWithUTF8String: text] sizeWithAttributes: textAttrs (f, ink(), 0.0)].width > box.size.width - 16.0)
+            f = boldFont (15.0);
+        drawText (text, f, [NSColor blackColor], NSMidX (box), NSMidY (box));
     }
+}
+
+// A parameter's value as the readout shows it, with units
+- (void) valueText: (int) param into: (char*) out size: (size_t) size
+{
+    char disp[16] = { 0 };
+    host->getParamDisplay (param, disp);
+    const int kind = kParamKind[param];
+    if (kind == kHiHz || kind == kMidHz || kind == kLoHz)
+    {
+        const size_t n = std::strlen (disp);
+        if (n && disp[n - 1] == 'k') { disp[n - 1] = 0; std::snprintf (out, size, "%s kHz", disp); }
+        else std::snprintf (out, size, "%s Hz", disp);
+    }
+    else if (kind == kBypassAll || kind == kLinkSw)
+        std::snprintf (out, size, "%s", isOn (shown[param]) ? "ON" : "OFF");
+    else if (kind == kBypassSw)
+        std::snprintf (out, size, "%s", isOn (shown[param]) ? "BYPASSED" : "IN");
+    else if (kind == kMicLine)
+    {
+        static const char* const names[3] = { "MIC", "D.I.", "LINE" };
+        std::snprintf (out, size, "%s", names[inputIndex (shown[param])]);
+    }
+    else if (kind == kPanPos)
+        std::snprintf (out, size, "%s", disp);
+    else
+        std::snprintf (out, size, "%s%s", disp, std::strcmp (disp, "-inf") ? " dB" : "");
 }
 
 // Preset keys: empty silver, saved charcoal, the one in use glowing red (the
@@ -1007,6 +1040,8 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     }
     for (int s = 0; s < 2; ++s)
         [self drawVU: vuRect (kMasterVuX[s]) value: meter[kMeterVuL + s] label: s == 0 ? "L" : "R"];
+    if (isOn (shown[kLink]))
+        drawText ("LINKED", boldFont (8.5), rgb (196, 30, 22), kChX[1] + 40.0, 22.0, 0.6);
 
     for (int i = 0; i < kNumCtls; ++i)
     {
@@ -1046,7 +1081,10 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
                 [self drawFaderAt: c.cx value: v];
                 break;
             case kCtlBypass:
-                [self drawBypassAt: p in: isOn (v)];
+                [self drawBypassAt: p in: isOn (v) title: "BYPASS"];
+                break;
+            case kCtlLink:
+                [self drawBypassAt: p in: isOn (v) title: "LINK"];
                 break;
             default: break;
         }
@@ -1075,7 +1113,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
             case kCtlFader:
                 if (std::fabs (dx) <= kCapW * 0.5 + 4.0 && p.y >= kFaderTop - kCapH && p.y <= kFaderBottom + kCapH) return i;
                 break;
-            case kCtlBypass:
+            case kCtlBypass: case kCtlLink:
                 if (std::fabs (dx) <= kBypassHalfW + 3.0 && std::fabs (p.y - c.cy) <= kBypassHalfH + 3.0) return i;
                 break;
             default:
@@ -1256,12 +1294,14 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
         [self startNaming: activePreset];
         return;
     }
+    if (([e modifierFlags] & NSControlKeyMask) != 0) { [self showValuesAt: p]; return; }   // Control-click = right-click
     if ([self presetClick: p]) return;
     const int i = [self ctlAtPoint: p];
     if (i < 0) return;
     const Ctl& c = kCtls[i];
     shown[c.param] = host->getParam (c.param);   // the live value, even between timer ticks
     readoutParam = c.param;
+    compare = false;
     status[0] = 0;
     activePreset = -1;     // settings are being changed away from the preset
 
@@ -1276,7 +1316,13 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
         host->guiEndEdit (c.param);
         return;
     }
-    if (c.type == kCtlButton || c.type == kCtlBypass)
+    if (isOn (shown[kLink]) && isChannel2 (c.param) && linkedControl (c.param - kCh2))
+    {
+        compare = true;          // linked: show both channels, change nothing
+        [self setNeedsDisplay: YES];
+        return;
+    }
+    if (c.type == kCtlButton || c.type == kCtlBypass || c.type == kCtlLink)
     {
         host->guiBeginEdit (c.param);
         [self setParam: c.param value: isOn (shown[c.param]) ? 0.0f : 1.0f];
@@ -1291,6 +1337,27 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     dragStartY = p.y;
     dragStartValue = shown[c.param];
     [self setNeedsDisplay: YES];
+}
+
+// Right-click: show the control's value, and the other channel's for the same
+// control, in the readout. Nothing moves.
+- (void) showValuesAt: (NSPoint) p
+{
+    if (! host) return;
+    if (nameField) [self finishNaming: YES];
+    const int i = [self ctlAtPoint: p];
+    if (i < 0) return;
+    const int param = kCtls[i].param;
+    for (int j = 0; j < kNumParams; ++j) shown[j] = host->getParam (j);
+    readoutParam = param;
+    compare = isChannel1 (param) || isChannel2 (param);
+    status[0] = 0;
+    [self setNeedsDisplay: YES];
+}
+
+- (void) rightMouseDown: (NSEvent*) e
+{
+    [self showValuesAt: viewToFace ([self convertPoint: [e locationInWindow] fromView: nil])];
 }
 
 - (void) mouseDragged: (NSEvent*) e
@@ -1319,7 +1386,8 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     const int i = [self ctlAtPoint: p];
     if (i < 0 || ! host) return;
     const Ctl& c = kCtls[i];
-    if (c.type == kCtlSlide3 || c.type == kCtlButton || c.type == kCtlBypass) return;
+    if (c.type == kCtlSlide3 || c.type == kCtlButton || c.type == kCtlBypass || c.type == kCtlLink) return;
+    if (isOn (shown[kLink]) && isChannel2 (c.param) && linkedControl (c.param - kCh2)) return;
     const CGFloat d = [e deltaY];
     if (d == 0.0) return;
     status[0] = 0;

@@ -65,7 +65,8 @@ static void mouse (NSWindow* w, NSView* v, NSEventType type, NSPoint panelPt, in
     NSEvent* e = [NSEvent mouseEventWithType: type location: wp modifierFlags: 0 timestamp: 0
                                 windowNumber: [w windowNumber] context: nil eventNumber: 0
                                   clickCount: clicks pressure: 1.0f];
-    if (type == NSLeftMouseDown) [v mouseDown: e];
+    if (type == NSRightMouseDown) [v rightMouseDown: e];
+    else if (type == NSLeftMouseDown) [v mouseDown: e];
     else if (type == NSLeftMouseDragged) [v mouseDragged: e];
     else [v mouseUp: e];
 }
@@ -212,6 +213,44 @@ int main (int argc, char** argv)
         mouse (win, panel, NSLeftMouseDown, NSMakePoint (602, 506));
         mouse (win, panel, NSLeftMouseUp,   NSMakePoint (602, 506));
         check (e->getParameter (e, kBypass) < 0.5f, "and out again");
+    }
+
+    // LINK: channel 1 drives channel 2 (pans apart); right-click shows both
+    {
+        e->setParameter (e, kCh1 + kCMidFreq, 0.3f);
+        mouse (win, panel, NSLeftMouseDown, NSMakePoint (602, 446));
+        mouse (win, panel, NSLeftMouseUp,   NSMakePoint (602, 446));
+        check (e->getParameter (e, kLink) >= 0.5f, "LINK latches in");
+        check (e->getParameter (e, kCh2 + kCMidFreq) == 0.3f, "and copies channel 1 into channel 2");
+        const float t2 = e->getParameter (e, kCh2 + kCTrim);
+        mouse (win, panel, NSLeftMouseDown,    NSMakePoint (268, 212));     // channel 2's TRIM
+        mouse (win, panel, NSLeftMouseDragged, NSMakePoint (268, 182));
+        mouse (win, panel, NSLeftMouseUp,      NSMakePoint (268, 182));
+        check (e->getParameter (e, kCh2 + kCTrim) == t2, "channel 2's linked knobs don't turn");
+        mouse (win, panel, NSLeftMouseDown,    NSMakePoint (108, 212));     // channel 1's TRIM
+        mouse (win, panel, NSLeftMouseDragged, NSMakePoint (108, 192));
+        mouse (win, panel, NSLeftMouseUp,      NSMakePoint (108, 192));
+        check (e->getParameter (e, kCh2 + kCTrim) == e->getParameter (e, kCh1 + kCTrim) && e->getParameter (e, kCh1 + kCTrim) > t2,
+               "channel 1's TRIM turns both");
+        const float p2 = e->getParameter (e, kCh2 + kCPan);
+        mouse (win, panel, NSLeftMouseDown,    NSMakePoint (268, 556));     // channel 2's PAN still works
+        mouse (win, panel, NSLeftMouseDragged, NSMakePoint (268, 576));
+        mouse (win, panel, NSLeftMouseUp,      NSMakePoint (268, 576));
+        check (e->getParameter (e, kCh2 + kCPan) < p2, "channel 2's PAN still turns on its own");
+        mouse (win, panel, NSRightMouseDown, NSMakePoint (108, 408 - 18));  // right-click MID FREQ
+        pump (0.1);
+        renderPNG (panel, dir + "/panel_linked.png");
+        mouse (win, panel, NSLeftMouseDown, NSMakePoint (602, 446));
+        mouse (win, panel, NSLeftMouseUp,   NSMakePoint (602, 446));
+        check (e->getParameter (e, kLink) < 0.5f, "LINK out again");
+        // right-click compares the channels without moving anything
+        e->setParameter (e, kCh2 + kCHiFreq, 0.2f);
+        const float h1 = e->getParameter (e, kCh1 + kCHiFreq), h2 = e->getParameter (e, kCh2 + kCHiFreq);
+        mouse (win, panel, NSRightMouseDown, NSMakePoint (268, 334 - 18));
+        pump (0.1);
+        renderPNG (panel, dir + "/panel_compare.png");
+        check (e->getParameter (e, kCh1 + kCHiFreq) == h1 && e->getParameter (e, kCh2 + kCHiFreq) == h2, "right-click changes nothing");
+        for (int i = 0; i < kNumParams; ++i) e->setParameter (e, i, kDefaults[i]);
     }
 
     // A frequency in the readout

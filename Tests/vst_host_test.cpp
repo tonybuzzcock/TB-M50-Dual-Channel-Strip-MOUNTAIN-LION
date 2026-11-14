@@ -86,7 +86,7 @@ int main (int argc, char** argv)
     std::printf ("\nIdentity\n");
     check (e->magic == kEffectMagic, "magic is 'VstP'");
     check (e->numInputs == 2 && e->numOutputs == 2, "stereo in/out");
-    check (e->numParams == tbm50::kNumParams && tbm50::kNumParams == 24, "24 parameters (11 per channel, master, bypass)");
+    check (e->numParams == tbm50::kNumParams && tbm50::kNumParams == 25, "25 parameters (11 per channel, master, bypass, link)");
     check ((e->flags & effFlagsCanReplacing) != 0, "processReplacing supported");
     check ((e->flags & effFlagsIsSynth) == 0, "not flagged as an instrument");
     check (e->initialDelay == 0, "no latency");
@@ -105,10 +105,10 @@ int main (int argc, char** argv)
     call (e, effSetBlockSize, 0, 512);
 
     std::printf ("\nParameters\n");
-    const char* expectDisp[24] = {
+    const char* expectDisp[25] = {
         "Line", "+0.0", "In", "6.12k", "+0.0", "1.58k", "+0.0", "224", "+0.0", "L100", "+0.0",
         "Line", "+0.0", "In", "6.12k", "+0.0", "1.58k", "+0.0", "224", "+0.0", "R100", "+0.0",
-        "+0.0", "Off" };
+        "+0.0", "Off", "Off" };
     for (int i = 0; i < tbm50::kNumParams; ++i)
     {
         char name[64] = { 0 }, disp[64] = { 0 }, label[64] = { 0 };
@@ -270,6 +270,41 @@ int main (int argc, char** argv)
         check (e->getParameter (e, tbm50::kBypass) == 0.0f, "the host's bypass leaves the BYPASS button alone");
         call (e, effSetBypass, 0, 0);
         e->setParameter (e, tbm50::kCh1 + tbm50::kCHiGain, 0.5f);
+    }
+
+    // LINK: channel 2 follows channel 1, pans apart
+    {
+        using namespace tbm50;
+        e->setParameter (e, kCh1 + kCHiGain, 0.8f);
+        e->setParameter (e, kCh1 + kCInput, 0.5f);
+        e->setParameter (e, kCh1 + kCPan, 0.3f);
+        e->setParameter (e, kLink, 1.0f);
+        check (e->getParameter (e, kCh2 + kCHiGain) == 0.8f && e->getParameter (e, kCh2 + kCInput) == 0.5f,
+               "LINK on copies channel 1 into channel 2");
+        check (e->getParameter (e, kCh2 + kCPan) == 1.0f, "but leaves channel 2's PAN alone");
+        e->setParameter (e, kCh1 + kCTrim, 0.6f);
+        check (e->getParameter (e, kCh2 + kCTrim) == 0.6f, "channel 1's TRIM drives channel 2's");
+        e->setParameter (e, kCh2 + kCTrim, 0.1f);
+        check (e->getParameter (e, kCh2 + kCTrim) == 0.6f, "channel 2's own TRIM is ignored while linked");
+        e->setParameter (e, kCh2 + kCPan, 0.7f);
+        check (e->getParameter (e, kCh2 + kCPan) == 0.7f && e->getParameter (e, kCh1 + kCPan) == 0.3f, "the pans stay independent");
+        // linked: a stereo source in comes out identical on both channels' paths
+        e->setParameter (e, kCh1 + kCPan, 0.0f); e->setParameter (e, kCh2 + kCPan, 1.0f);
+        std::vector<float> a (sr), oa (sr), ob (sr);
+        for (int i = 0; i < sr; ++i) a[i] = (float) (0.1 * std::sin (0.05 * i));
+        std::vector<float> b (a);
+        runBlocks (e, a, b, oa, ob, 512);
+        double d = 0.0;
+        for (int i = sr / 2; i < sr; ++i) d = std::max (d, (double) std::fabs (oa[i] - ob[i]));
+        std::printf ("  linked: largest L-R difference %.2g\n", d);
+        check (d < 0.003, "linked channels process alike (apart from each channel's own hiss)");
+        e->setParameter (e, kLink, 0.0f);
+        e->setParameter (e, kCh2 + kCTrim, 0.2f);
+        check (e->getParameter (e, kCh2 + kCTrim) == 0.2f && e->getParameter (e, kCh1 + kCTrim) == 0.6f, "LINK off: channel 2 is its own again");
+        std::memset (buf, 0, sizeof (buf));
+        call (e, effGetParamDisplay, kLink, 0, buf);
+        check (std::strcmp (buf, "Off") == 0, "Link shows Off");
+        for (int i = 0; i < kNumParams; ++i) e->setParameter (e, i, kDefaults[i]);
     }
 
     // processAccumulate adds
