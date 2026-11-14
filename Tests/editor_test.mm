@@ -304,7 +304,7 @@ int main (int argc, char** argv)
         e->setParameter (e, kCh2 + kCMidFreq, 0.35f);
         e->setParameter (e, kCh2 + kCMidGain, 0.3f);
         e->setParameter (e, kCh1 + kCFader, 0.62f);
-        const int n = 22050;
+        const int n = 13000;     // ends 45 ms after a hit: the OVERLOAD LED is mid-flash
         std::vector<float> a (n), b (n), oa (n), ob (n);
         for (int i = 0; i < n; ++i)
         {
@@ -320,6 +320,7 @@ int main (int argc, char** argv)
         e->processReplacing (e, in, out, n);
         pump (0.3);
         check (e->getParameter (e, kCh1 + kCTrim) > 0.85f, "settings held");
+
         NSData* lit = renderPNG (panel, dir + "/panel_showcase.png");
         check (! [lit isEqualToData: quiet], "VUs and the OVERLOAD LED follow the audio");
     }

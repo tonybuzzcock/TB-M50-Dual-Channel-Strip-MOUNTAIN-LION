@@ -483,7 +483,7 @@ void glowFill (NSBezierPath* p, NSColor* colour, CGFloat blur)
         }
     }
     drawText ("VU", boldFont (9.0), ink(), NSMidX (r), NSMaxY (r) - 13.0, 0.5);
-    drawText (lab, boldFont (7.5), dimInk(), NSMinX (r) + 9.0, NSMaxY (r) - 8.0);
+    (void) lab;      // the channel / side is lettered outside the meter
 
     // the needle, pinned a little past each end
     float d = db < -22.0f ? -22.0f : (db > 4.0f ? 4.0f : db);
