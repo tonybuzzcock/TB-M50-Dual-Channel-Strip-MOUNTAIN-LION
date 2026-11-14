@@ -347,7 +347,6 @@ void glowFill (NSBezierPath* p, NSColor* colour, CGFloat blur)
         [sg drawInRect: strip angle: 90.0];
         [rgb (30, 29, 27) set];
         NSRectFill (NSMakeRect (0, kConsoleBottom, w, 1.5));
-        drawText ("PRESETS", boldFont (11.0), ink(), (NSMaxX (slotRect (kNumPresetSlots - 1)) + w - 16.0) * 0.5, NSMidY (kSaveRect), 0.8);
     }
     [rgba (0, 0, 0, 0.6) set];
     NSFrameRectWithWidth (NSMakeRect (0, 0, w, h), 1.0);
