@@ -9,8 +9,9 @@
 //   the stereo buss (hard left / hard right by default).
 // - On the Mac, a custom panel (PanelView.mm) with VU meters; elsewhere the host
 //   shows generic controls.
-// - BYPASS (also the host's own bypass, effSetBypass) crossfades to the dry
-//   input over 10 ms; presets leave it alone.
+// - BYPASS (the panel button) crossfades this plugin to its dry input over
+//   10 ms; presets leave it alone. It is not tied to the host's bypass, so it
+//   never touches anything else in the host (other plugins in PatchWork).
 // - No latency. Plain C++98; the editor uses only Cocoa APIs present in Mac OS X 10.8.5.
 
 #include "vst2_abi.h"
@@ -305,8 +306,7 @@ private:
                 if (ptr)
                 {
                     const char* s = (const char*) ptr;
-                    if (! std::strcmp (s, "plugAsChannelInsert") || ! std::strcmp (s, "plugAsSend")
-                        || ! std::strcmp (s, "bypass"))
+                    if (! std::strcmp (s, "plugAsChannelInsert") || ! std::strcmp (s, "plugAsSend"))
                         return 1;
                     if (! std::strcmp (s, "receiveVstEvents") || ! std::strcmp (s, "receiveVstMidiEvent")
                         || ! std::strcmp (s, "sendVstEvents") || ! std::strcmp (s, "sendVstMidiEvent"))
@@ -315,9 +315,6 @@ private:
                 return 0;
 
             case effGetTailSize:       return (VstIntPtr) (sampleRate * 0.5);    // EQ and coupling ring-down
-            case effSetBypass:
-                params[kBypass] = value ? 1.0f : 0.0f;
-                return 1;
             case effStartProcess:      return 0;
             case effStopProcess:       return 0;
             default:                   return 0;

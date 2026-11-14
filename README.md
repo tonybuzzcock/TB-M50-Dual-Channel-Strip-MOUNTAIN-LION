@@ -41,8 +41,9 @@ Each channel, top to bottom:
 STEREO MASTER: one fader for both sides (same law), L and R VUs.
 
 BYPASS (the user's addition, above the master fader): the whole plugin, lit red when in. It fades
-to the dry input over about 10 ms (no click) and then passes it untouched; it also answers the
-host's own bypass. Presets don't change it.
+to the dry input over about 10 ms (no click) and then passes it untouched. It bypasses this plugin
+only: it isn't tied to the host's bypass, so other plugins in PatchWork are never affected. Presets
+don't change it.
 
 Left off at the user's request: MIC ATT, PHASE, the AUX sends, ASSIGN, MUTE, SOLO / PFL.
 

@@ -264,12 +264,11 @@ int main (int argc, char** argv)
         d = 0.0;
         for (int i = sr / 10; i < sr; ++i) d = std::max (d, (double) std::fabs (oa[i] - a[i]));
         check (d > 0.01, "and out again (the EQ is heard)");
-        // the host's own bypass
-        check (call (e, effCanDo, 0, 0, (void*) "bypass") == 1, "offers the host's bypass");
+        // not tied to the host's bypass
+        check (call (e, effCanDo, 0, 0, (void*) "bypass") != 1, "doesn't take over the host's bypass");
         call (e, effSetBypass, 0, 1);
-        check (e->getParameter (e, tbm50::kBypass) == 1.0f, "effSetBypass engages BYPASS");
+        check (e->getParameter (e, tbm50::kBypass) == 0.0f, "the host's bypass leaves the BYPASS button alone");
         call (e, effSetBypass, 0, 0);
-        check (e->getParameter (e, tbm50::kBypass) == 0.0f, "and releases it");
         e->setParameter (e, tbm50::kCh1 + tbm50::kCHiGain, 0.5f);
     }
 
