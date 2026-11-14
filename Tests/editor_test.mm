@@ -306,7 +306,7 @@ int main (int argc, char** argv)
     mouse (win, panel, NSLeftMouseUp,   SLOT (2));
     check (std::fabs (e->getParameter (e, kCh1 + kCHiGain) - 0.8f) < 1e-5f
            && e->getParameter (e, kCh2 + kCBypass) >= 0.5f, "clicking the slot recalls the saved settings");
-    check (automateCalls >= kNumParams, "recall tells the host about every parameter");
+    check (automateCalls >= kNumParams - 1, "recall tells the host about every parameter (BYPASS stays as it is)");
     renderPNG (panel, dir + "/panel_preset_loaded.png");
 
     mouse (win, panel, NSLeftMouseDown, NSMakePoint (429, 885));

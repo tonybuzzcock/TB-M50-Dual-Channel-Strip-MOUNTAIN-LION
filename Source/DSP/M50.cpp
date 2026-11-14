@@ -16,7 +16,6 @@ namespace
     const double kEqRangeDb    = 15.0;         // boost / cut +-15 dB
     const double kEqLo[kNumBands] = { 50.0, 500.0, 2500.0 };
     const double kEqHi[kNumBands] = { 1000.0, 5000.0, 15000.0 };
-    const double kBufferDb     = 8.0;          // input channel buffer amp
     const double kOverloadDb   = 25.0;         // OVERLOAD LED: 25 dB above nominal
 
     // ---- Estimates (no component schematic) ------------------------------
@@ -53,7 +52,7 @@ namespace
     const double kGainS        = 0.008;        // fader / pan smoothing
     const double kVuTauS       = 0.065;        // two poles: about 300 ms to 99 %, as a VU
 
-    // Fader law (whole channel, buffer amp included): marks 0..10 -> dB
+    // Fader law (whole channel, the +8 dB channel buffer amp included): marks 0..10 -> dB
     const double kFaderMarks[7] = { 0.0, 0.5, 1.0, 2.5, 5.0, 7.5, 10.0 };
     const double kFaderDb[7]    = { -200.0, -60.0, -40.0, -25.0, -10.0, 0.0, 8.0 };
 

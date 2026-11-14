@@ -112,7 +112,6 @@ NSColor* dimInk()    { return rgb (128, 125, 118); }
 NSColor* faceTop()   { return rgb (204, 200, 191); }
 NSColor* faceBot()   { return rgb (182, 178, 169); }
 NSColor* trimRed()   { return rgb (206, 38, 34); }
-NSColor* eqOrange()  { return rgb (232, 132, 34); }
 NSColor* cream()     { return rgb (234, 228, 208); }
 NSColor* amber()     { return rgb (255, 168, 40); }
 
