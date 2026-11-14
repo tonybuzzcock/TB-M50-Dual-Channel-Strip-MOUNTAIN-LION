@@ -10,7 +10,7 @@ namespace tbm50
 {
 
 // A square panel: the two channels on the left half, the stereo master on the right
-enum { kEditorWidth = 880, kEditorHeight = 880 };
+enum { kEditorWidth = 920, kEditorHeight = 920 };
 
 // What the panel shows from the running console
 enum Meter

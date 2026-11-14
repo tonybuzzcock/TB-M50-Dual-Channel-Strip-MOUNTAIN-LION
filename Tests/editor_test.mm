@@ -156,7 +156,7 @@ int main (int argc, char** argv)
             ps.push_back (chParam (c, kCPan));   at.push_back (NSMakePoint (cx[c], 556));
             ps.push_back (chParam (c, kCFader)); at.push_back (NSMakePoint (cx[c], faderPos (0.5f)));
         }
-        ps.push_back (kMaster); at.push_back (NSMakePoint (760, faderPos (0.5f)));
+        ps.push_back (kMaster); at.push_back (NSMakePoint (800, faderPos (0.5f)));
         bool all = true;
         for (size_t k = 0; k < ps.size(); ++k)
         {
@@ -209,12 +209,12 @@ int main (int argc, char** argv)
     e->setParameter (e, kCh1 + kCMidFreq, kDefaults[kCh1 + kCMidFreq]);
 
     std::printf ("\nPresets\n");
-    #define SLOT(k) NSMakePoint (226.0 + (k) * 46.0 + 20.0, 797.0)
+    #define SLOT(k) NSMakePoint (226.0 + (k) * 46.0 + 20.0, 837.0)
     e->setParameter (e, kCh1 + kCHiGain, 0.8f);
     e->setParameter (e, kCh2 + kCBypass, 1.0f);
     pump (0.1);
-    mouse (win, panel, NSLeftMouseDown, NSMakePoint (184, 797));    // SAVE
-    mouse (win, panel, NSLeftMouseUp,   NSMakePoint (184, 797));
+    mouse (win, panel, NSLeftMouseDown, NSMakePoint (184, 837));    // SAVE
+    mouse (win, panel, NSLeftMouseUp,   NSMakePoint (184, 837));
     mouse (win, panel, NSLeftMouseDown, SLOT (2));                   // slot 3
     mouse (win, panel, NSLeftMouseUp,   SLOT (2));
     FILE* pf = std::fopen (presetFile.c_str(), "r");
@@ -257,8 +257,8 @@ int main (int argc, char** argv)
     check (automateCalls >= kNumParams, "recall tells the host about every parameter");
     renderPNG (panel, dir + "/panel_preset_loaded.png");
 
-    mouse (win, panel, NSLeftMouseDown, NSMakePoint (508, 845));
-    mouse (win, panel, NSLeftMouseUp,   NSMakePoint (508, 845));
+    mouse (win, panel, NSLeftMouseDown, NSMakePoint (508, 885));
+    mouse (win, panel, NSLeftMouseUp,   NSMakePoint (508, 885));
     field = nil;
     for (NSView* sv in [panel subviews]) if ([sv isKindOfClass: [NSTextField class]]) field = (NSTextField*) sv;
     check (field != nil && [[field stringValue] isEqualToString: @"Drum buss glue"], "clicking the readout opens the name to edit");

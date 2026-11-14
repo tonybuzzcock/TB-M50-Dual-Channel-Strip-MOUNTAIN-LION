@@ -45,8 +45,8 @@ struct Ctl
 
 // Geometry (flipped: y down)
 const CGFloat kChX[2] = { 108.0, 268.0 };
-const CGFloat kMasterX = 760.0;
-const CGFloat kConsoleBottom = 768.0;      // the plugin strip starts here
+const CGFloat kMasterX = 800.0;
+const CGFloat kConsoleBottom = 808.0;      // the plugin strip starts here (a clear band of face below the faders' 0)
 const CGFloat kVuTop = 38.0, kVuW = 92.0, kVuH = 60.0;
 const CGFloat kInputY = 152.0;
 const CGFloat kTrimY = 212.0;
@@ -79,10 +79,10 @@ const Ctl kCtls[] = {
 const int kNumCtls = (int) (sizeof (kCtls) / sizeof (kCtls[0]));
 
 // Plugin strip: logo, presets, readout
-const NSRect kLogoBox = { { 16.0, 788.0 }, { 120.0, 72.0 } };
-const NSRect kSaveRect = { { 152.0, 782.0 }, { 64.0, 30.0 } };
-const CGFloat kSlotX0 = 226.0, kSlotPitch = 46.0, kSlotW = 40.0, kSlotY = 782.0, kSlotH = 30.0;
-const NSRect kReadoutRect = { { 152.0, 824.0 }, { 712.0, 42.0 } };
+const NSRect kLogoBox = { { 16.0, 828.0 }, { 120.0, 72.0 } };
+const NSRect kSaveRect = { { 152.0, 822.0 }, { 64.0, 30.0 } };
+const CGFloat kSlotX0 = 226.0, kSlotPitch = 46.0, kSlotW = 40.0, kSlotY = 822.0, kSlotH = 30.0;
+const NSRect kReadoutRect = { { 152.0, 864.0 }, { 752.0, 42.0 } };
 
 inline NSRect slotRect (int k) { return NSMakeRect (kSlotX0 + k * kSlotPitch, kSlotY, kSlotW, kSlotH); }
 inline CGFloat faderY (CGFloat v) { return kFaderBottom - v * (kFaderBottom - kFaderTop); }
@@ -322,7 +322,7 @@ void glowFill (NSBezierPath* p, NSColor* colour, CGFloat blur)
     }
 
     // Strip dividers (the gaps between modules) and the master section's edge
-    const CGFloat divs[4] = { 28.0, 188.0, 348.0, 664.0 };
+    const CGFloat divs[4] = { 28.0, 188.0, 348.0, 704.0 };
     for (int k = 0; k < 4; ++k)
     {
         [rgba (0, 0, 0, 0.45) set];
@@ -347,7 +347,7 @@ void glowFill (NSBezierPath* p, NSColor* colour, CGFloat blur)
         [sg drawInRect: strip angle: 90.0];
         [rgb (30, 29, 27) set];
         NSRectFill (NSMakeRect (0, kConsoleBottom, w, 1.5));
-        drawText ("PRESETS", boldFont (11.0), ink(), (NSMaxX (slotRect (kNumPresetSlots - 1)) + 864.0) * 0.5, NSMidY (kSaveRect), 0.8);
+        drawText ("PRESETS", boldFont (11.0), ink(), (NSMaxX (slotRect (kNumPresetSlots - 1)) + w - 16.0) * 0.5, NSMidY (kSaveRect), 0.8);
     }
     [rgba (0, 0, 0, 0.6) set];
     NSFrameRectWithWidth (NSMakeRect (0, 0, w, h), 1.0);
