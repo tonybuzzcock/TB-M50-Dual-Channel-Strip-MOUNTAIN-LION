@@ -9,8 +9,10 @@
 namespace tbm50
 {
 
-// Slightly portrait: the channels on the left, the stereo master on the right
-enum { kEditorWidth = 722, kEditorHeight = 920 };
+// Portrait: the channels on the left, the stereo master on the right; the face
+// (kFaceWidth x kFaceHeight) sits inside a mahogany frame kPanelFrame wide
+enum { kFaceWidth = 722, kFaceHeight = 920, kPanelFrame = 24,
+       kEditorWidth = kFaceWidth + 2 * kPanelFrame, kEditorHeight = kFaceHeight + 2 * kPanelFrame };
 
 // What the panel shows from the running console
 enum Meter

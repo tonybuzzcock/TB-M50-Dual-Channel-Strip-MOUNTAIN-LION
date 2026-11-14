@@ -183,6 +183,111 @@ void glowFill (NSBezierPath* p, NSColor* colour, CGFloat blur)
     [NSGraphicsContext restoreGraphicsState];
 }
 
+inline NSRect faceToView (NSRect r) { return NSOffsetRect (r, kPanelFrame, kPanelFrame); }
+inline NSPoint viewToFace (NSPoint p) { return NSMakePoint (p.x - kPanelFrame, p.y - kPanelFrame); }
+
+// One mahogany board: a deep red-brown with darker pores and lighter streaks of
+// grain running along its length (horizontal or vertical), slightly wavy.
+void drawMahoganyBoard (NSRect r, bool vertical, unsigned seed)
+{
+    NSGradient* base = [[[NSGradient alloc] initWithColorsAndLocations:
+                           rgb (122, 46, 26), 0.0, rgb (104, 36, 20), 0.5, rgb (88, 30, 16), 1.0, nil] autorelease];
+    [base drawInRect: r angle: vertical ? 0.0 : 90.0];
+    const CGFloat len = vertical ? r.size.height : r.size.width;
+    const CGFloat across = vertical ? r.size.width : r.size.height;
+    for (int k = 0; k < (int) (across * 3.0); ++k)
+    {
+        seed = seed * 1664525u + 1013904223u;
+        const CGFloat pos = (seed >> 8) / 16777216.0 * across;
+        seed = seed * 1664525u + 1013904223u;
+        const double q = (seed >> 8) / 16777216.0;
+        seed = seed * 1664525u + 1013904223u;
+        const CGFloat phase = (seed >> 8) / 16777216.0 * 6.283;
+        const CGFloat amp = 0.6 + 1.6 * q, wave = 0.004 + 0.01 * q;
+        NSColor* c = q < 0.55 ? rgba (40, 10, 4, 0.10 + 0.16 * q) : rgba (196, 92, 52, 0.05 + 0.10 * (q - 0.55));
+        NSBezierPath* g = [NSBezierPath bezierPath];
+        for (int i = 0; i <= 40; ++i)
+        {
+            const CGFloat t = len * i / 40.0;
+            const CGFloat off = pos + amp * std::sin (t * wave * 6.283 + phase) + 0.8 * std::sin (t * 0.031 + phase * 2.0);
+            const NSPoint pt = vertical ? NSMakePoint (r.origin.x + off, r.origin.y + t) : NSMakePoint (r.origin.x + t, r.origin.y + off);
+            if (i == 0) [g moveToPoint: pt]; else [g lineToPoint: pt];
+        }
+        [g setLineWidth: 0.5 + 1.4 * (1.0 - q)];
+        [c set];
+        [g stroke];
+    }
+    // pores: short dark flecks along the grain
+    for (int k = 0; k < (int) (len * across / 60.0); ++k)
+    {
+        seed = seed * 1664525u + 1013904223u; const CGFloat a = (seed >> 8) / 16777216.0 * len;
+        seed = seed * 1664525u + 1013904223u; const CGFloat b = (seed >> 8) / 16777216.0 * across;
+        [rgba (30, 6, 2, 0.35) set];
+        NSRectFillUsingOperation (vertical ? NSMakeRect (r.origin.x + b, r.origin.y + a, 0.8, 3.0)
+                                           : NSMakeRect (r.origin.x + a, r.origin.y + b, 3.0, 0.8), NSCompositeSourceOver);
+    }
+}
+
+// The mahogany frame round the face: four boards mitred at the corners, then a
+// clear lacquer (a soft sheen across each board, a bright line along its outer
+// edge, a dark bevel where it meets the face).
+void drawMahoganyFrame()
+{
+    const CGFloat W = kEditorWidth, H = kEditorHeight, F = kPanelFrame;
+    for (int side = 0; side < 4; ++side)
+    {
+        NSBezierPath* clip = [NSBezierPath bezierPath];
+        NSRect board;
+        bool vertical;
+        switch (side)
+        {
+            case 0:  // top
+                [clip moveToPoint: NSMakePoint (0, 0)]; [clip lineToPoint: NSMakePoint (W, 0)];
+                [clip lineToPoint: NSMakePoint (W - F, F)]; [clip lineToPoint: NSMakePoint (F, F)];
+                board = NSMakeRect (0, 0, W, F); vertical = false; break;
+            case 1:  // bottom
+                [clip moveToPoint: NSMakePoint (0, H)]; [clip lineToPoint: NSMakePoint (W, H)];
+                [clip lineToPoint: NSMakePoint (W - F, H - F)]; [clip lineToPoint: NSMakePoint (F, H - F)];
+                board = NSMakeRect (0, H - F, W, F); vertical = false; break;
+            case 2:  // left
+                [clip moveToPoint: NSMakePoint (0, 0)]; [clip lineToPoint: NSMakePoint (F, F)];
+                [clip lineToPoint: NSMakePoint (F, H - F)]; [clip lineToPoint: NSMakePoint (0, H)];
+                board = NSMakeRect (0, 0, F, H); vertical = true; break;
+            default: // right
+                [clip moveToPoint: NSMakePoint (W, 0)]; [clip lineToPoint: NSMakePoint (W - F, F)];
+                [clip lineToPoint: NSMakePoint (W - F, H - F)]; [clip lineToPoint: NSMakePoint (W, H)];
+                board = NSMakeRect (W - F, 0, F, H); vertical = true; break;
+        }
+        [clip closePath];
+        [NSGraphicsContext saveGraphicsState];
+        [clip addClip];
+        drawMahoganyBoard (board, vertical, 3301u + 977u * (unsigned) side);
+        // lacquer: a rounded sheen across the board
+        NSGradient* sheen = [[[NSGradient alloc] initWithColorsAndLocations:
+                                rgba (255, 236, 220, 0.20), 0.0, rgba (255, 236, 220, 0.04), 0.35,
+                                rgba (0, 0, 0, 0.0), 0.6, rgba (0, 0, 0, 0.22), 1.0, nil] autorelease];
+        const CGFloat ang = side == 0 ? 90.0 : (side == 1 ? -90.0 : (side == 2 ? 0.0 : 180.0));
+        [sheen drawInRect: board angle: ang];
+        [NSGraphicsContext restoreGraphicsState];
+        // the mitre joint
+        [rgba (30, 8, 2, 0.7) set];
+    }
+    [rgba (30, 8, 2, 0.75) set];
+    line (0, 0, F, F, 1.0);  line (W, 0, W - F, F, 1.0);
+    line (0, H, F, H - F, 1.0);  line (W, H, W - F, H - F, 1.0);
+    [rgba (255, 220, 200, 0.18) set];
+    line (1, 0.5, W - 1, 0.5, 1.0);  line (0.5, 1, 0.5, H - 1, 1.0);
+    // a soft highlight streak down the lacquer, lit from the top left
+    [rgba (255, 240, 228, 0.10) set];
+    NSRectFillUsingOperation (NSMakeRect (5, F, 3, H - 2 * F), NSCompositeSourceOver);
+    NSRectFillUsingOperation (NSMakeRect (F, 5, W - 2 * F, 3), NSCompositeSourceOver);
+    // the inner bevel where the wood meets the face
+    [rgba (20, 6, 2, 0.9) set];
+    NSFrameRectWithWidth (NSMakeRect (F - 2, F - 2, W - 2 * F + 4, H - 2 * F + 4), 2.0);
+    [rgba (0, 0, 0, 0.85) set];
+    NSFrameRectWithWidth (NSMakeRect (0, 0, W, H), 1.0);
+}
+
 // The model name in the spirit of the M-50's own: a very heavy, wide sans
 // (Arial Black, which ships with OS X, stretched 25 % wider; Helvetica Bold
 // thickened with an outline if it is missing). Plain lettering, no artwork.
@@ -318,9 +423,9 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     if (changed) { [self setNeedsDisplay: YES]; return; }
     for (int c = 0; c < 2; ++c)
     {
-        if (vu[c]) [self setNeedsDisplayInRect: NSInsetRect (vuRect (kChX[c]), -4.0, -4.0)];
-        if (ol[c]) [self setNeedsDisplayInRect: NSMakeRect (kChX[c] + 30.0, kTrimY - 34.0, 40.0, 40.0)];
-        if (vu[2 + c]) [self setNeedsDisplayInRect: NSInsetRect (vuRect (kMasterVuX[c]), -4.0, -4.0)];
+        if (vu[c]) [self setNeedsDisplayInRect: faceToView (NSInsetRect (vuRect (kChX[c]), -4.0, -4.0))];
+        if (ol[c]) [self setNeedsDisplayInRect: faceToView (NSMakeRect (kChX[c] + 30.0, kTrimY - 34.0, 40.0, 40.0))];
+        if (vu[2 + c]) [self setNeedsDisplayInRect: faceToView (NSInsetRect (vuRect (kMasterVuX[c]), -4.0, -4.0))];
     }
 }
 
@@ -331,10 +436,20 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
 - (NSImage*) backdropImage
 {
     if (backdrop) return backdrop;
-    const CGFloat w = [self bounds].size.width;
-    const CGFloat h = [self bounds].size.height;
-    backdrop = [[NSImage alloc] initWithSize: NSMakeSize (w, h)];
+    backdrop = [[NSImage alloc] initWithSize: NSMakeSize (kEditorWidth, kEditorHeight)];
     [backdrop lockFocusFlipped: YES];
+    drawMahoganyFrame();
+
+    // Everything else in face coordinates, inside the frame
+    const CGFloat w = kFaceWidth;
+    const CGFloat h = kFaceHeight;
+    [NSGraphicsContext saveGraphicsState];
+    {
+        NSAffineTransform* t = [NSAffineTransform transform];
+        [t translateXBy: kPanelFrame yBy: kPanelFrame];
+        [t concat];
+        NSRectClip (NSMakeRect (0, 0, w, h));
+    }
 
     // The console face: warm grey, a faint brushed grain
     NSGradient* fg = [[[NSGradient alloc] initWithStartingColor: faceTop() endingColor: faceBot()] autorelease];
@@ -452,6 +567,13 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     // The TB electronic logo, red and black, in the strip's corner
     tblogo::drawTBLogo (kLogoBox);
 
+    [NSGraphicsContext restoreGraphicsState];
+    // the frame's shadow falling on the face's edge
+    for (int k = 0; k < 6; ++k)
+    {
+        [rgba (0, 0, 0, 0.22 - 0.035 * k) set];
+        NSFrameRectWithWidth (NSMakeRect (kPanelFrame + k, kPanelFrame + k, w - 2 * k, h - 2 * k), 1.0);
+    }
     [backdrop unlockFocus];
     return backdrop;
 }
@@ -762,8 +884,8 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     }
 }
 
-// Preset keys in the standard look: empty silver, saved charcoal, in use lime
-// green; SAVE lit red while armed.
+// Preset keys: empty silver, saved charcoal, the one in use glowing red (the
+// user's choice for this panel); SAVE lit red while armed.
 - (void) drawKey: (NSRect) r state: (int) state
 {
     NSBezierPath* bp = [NSBezierPath bezierPathWithRoundedRect: r xRadius: 2.0 yRadius: 2.0];
@@ -808,9 +930,9 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     for (int k = 0; k < kNumPresetSlots; ++k)
     {
         const NSRect r = slotRect (k);
-        const int state = (k == activePreset) ? 2 : (presetUsed[k] ? 1 : 0);
+        const int state = (k == activePreset) ? 3 : (presetUsed[k] ? 1 : 0);   // in use: glows red
         [self drawKey: r state: state];
-        NSColor* text = state == 1 ? [NSColor whiteColor] : [NSColor blackColor];
+        NSColor* text = state == 1 ? [NSColor whiteColor] : (state == 3 ? rgb (60, 10, 6) : [NSColor blackColor]);
         char num[4];
         std::snprintf (num, sizeof (num), "%d", k + 1);
         drawText (num, boldFont (15.0), text, NSMidX (r), NSMidY (r));
@@ -821,6 +943,17 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
 {
     (void) dirty;
     [self drawBackground];
+    [NSGraphicsContext saveGraphicsState];
+    NSAffineTransform* faceT = [NSAffineTransform transform];
+    [faceT translateXBy: kPanelFrame yBy: kPanelFrame];
+    [faceT concat];
+    [self drawFace];
+    [NSGraphicsContext restoreGraphicsState];
+}
+
+// The controls, lamps, meters, presets and readout, in face coordinates
+- (void) drawFace
+{
 
     for (int c = 0; c < 2; ++c)
     {
@@ -953,7 +1086,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
     char name[kMaxPresetName + 8] = { 0 };
     host->presetName (slot, name, (int) sizeof (name));
 
-    nameField = [[NSTextField alloc] initWithFrame: NSInsetRect (kReadoutRect, 6.0, 8.0)];
+    nameField = [[NSTextField alloc] initWithFrame: faceToView (NSInsetRect (kReadoutRect, 6.0, 8.0))];
     [nameField setBezeled: NO];
     [nameField setBordered: NO];
     [nameField setDrawsBackground: YES];
@@ -1066,7 +1199,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
 
 - (void) mouseDown: (NSEvent*) e
 {
-    const NSPoint p = [self convertPoint: [e locationInWindow] fromView: nil];
+    const NSPoint p = viewToFace ([self convertPoint: [e locationInWindow] fromView: nil]);
     if (! host) return;
     if (nameField) [self finishNaming: YES];
     if (NSPointInRect (p, kReadoutRect) && activePreset >= 0)
@@ -1115,7 +1248,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
 {
     if (dragCtl < 0 || ! host) return;
     const Ctl& c = kCtls[dragCtl];
-    const NSPoint p = [self convertPoint: [e locationInWindow] fromView: nil];
+    const NSPoint p = viewToFace ([self convertPoint: [e locationInWindow] fromView: nil]);
     const bool fine = ([e modifierFlags] & NSShiftKeyMask) != 0;
     // faders follow the hand; knobs take 200 px for the whole turn
     const CGFloat span = c.type == kCtlFader ? (kFaderBottom - kFaderTop) : 200.0;
@@ -1133,7 +1266,7 @@ void drawModelName (const char* text, CGFloat cx, CGFloat cy, CGFloat size)
 
 - (void) scrollWheel: (NSEvent*) e
 {
-    const NSPoint p = [self convertPoint: [e locationInWindow] fromView: nil];
+    const NSPoint p = viewToFace ([self convertPoint: [e locationInWindow] fromView: nil]);
     const int i = [self ctlAtPoint: p];
     if (i < 0 || ! host) return;
     const Ctl& c = kCtls[i];

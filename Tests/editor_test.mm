@@ -60,7 +60,8 @@ static NSData* renderPNG (NSView* v, const std::string& path)
 // Send a mouse event at a point in the panel's (flipped) coordinates.
 static void mouse (NSWindow* w, NSView* v, NSEventType type, NSPoint panelPt, int clicks = 1)
 {
-    const NSPoint wp = [v convertPoint: panelPt toView: nil];
+    // panelPt is in face coordinates; the face sits inside the wooden frame
+    const NSPoint wp = [v convertPoint: NSMakePoint (panelPt.x + tbm50::kPanelFrame, panelPt.y + tbm50::kPanelFrame) toView: nil];
     NSEvent* e = [NSEvent mouseEventWithType: type location: wp modifierFlags: 0 timestamp: 0
                                 windowNumber: [w windowNumber] context: nil eventNumber: 0
                                   clickCount: clicks pressure: 1.0f];
